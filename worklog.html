@@ -1,0 +1,821 @@
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<div id="app">
+  <div class="loading" id="loadingMsg">Opening the logbook…</div>
+</div>
+
+<style>
+:root{
+  --paper: #EDE6D6;
+  --paper-card: #F7F1E3;
+  --rule: #C9BFA6;
+  --ink: #2B2A28;
+  --ink-soft: #746c5c;
+  --rust: #A13D2B;
+  --amber: #B98A2E;
+  --steel: #4A5A6A;
+  --olive: #3F5D3A;
+}
+
+*{box-sizing:border-box;}
+
+#app{
+  background:var(--paper);
+  background-image:
+    linear-gradient(var(--paper) 0%, var(--paper) 100%),
+    repeating-linear-gradient(transparent, transparent 27px, rgba(201,191,166,0.35) 28px);
+  color:var(--ink);
+  font-family: Georgia, 'Times New Roman', serif;
+  min-height: 100%;
+  padding: 28px 20px 60px;
+  max-width: 780px;
+  margin: 0 auto;
+  position: relative;
+}
+
+.loading{
+  font-family:'Courier New', monospace;
+  letter-spacing:0.08em;
+  color:var(--ink-soft);
+  text-align:center;
+  padding:60px 0;
+  text-transform:uppercase;
+  font-size:13px;
+}
+
+/* header */
+.masthead{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  border-bottom: 3px double var(--ink);
+  padding-bottom:10px;
+  margin-bottom: 4px;
+  flex-wrap:wrap;
+  gap:10px;
+}
+.masthead h1{
+  font-family:'Courier New', monospace;
+  font-weight:700;
+  letter-spacing:0.12em;
+  font-size: 26px;
+  margin:0;
+  text-transform:uppercase;
+  line-height:1;
+}
+.masthead h1 span{ color:var(--rust); }
+
+.datebar{
+  display:flex;
+  align-items:center;
+  flex-wrap: wrap;
+  gap:6px;
+  font-family:'Courier New', monospace;
+  font-size:13px;
+}
+.datebar button, .today-btn{
+  box-sizing: border-box;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  white-space: nowrap;
+  cursor:pointer;
+  font-family:'Courier New', monospace;
+  border-radius:0;
+}
+.datebar button:not(.today-btn){
+  background:none;
+  border:1px solid var(--ink);
+  color:var(--ink);
+  width:28px;
+  padding:0;
+  font-size:14px;
+}
+.datebar button:not(.today-btn):hover{ background:var(--ink); color:var(--paper); }
+.datebar input[type="date"]{
+  box-sizing: border-box;
+  height: 28px;
+  font-family:'Courier New', monospace;
+  font-size: 12px;
+  border:1px solid var(--ink);
+  background:transparent;
+  color:var(--ink);
+  padding: 0 6px;
+}
+.today-btn{
+  font-size:11px;
+  text-transform:uppercase;
+  letter-spacing:0.05em;
+  border:1px solid var(--ink-soft);
+  background:transparent;
+  color:var(--ink-soft);
+  padding: 0 12px;
+  min-width: 64px;
+}
+.today-btn:hover{ color:var(--ink); border-color:var(--ink); }
+
+.subline{
+  font-family:'Courier New', monospace;
+  font-size:11px;
+  letter-spacing:0.05em;
+  color:var(--ink-soft);
+  text-transform:uppercase;
+  margin: 6px 0 26px;
+}
+
+/* quick status table */
+.table-wrap{ margin-bottom: 36px; }
+.table-wrap h2{
+  font-family:'Courier New', monospace;
+  font-size:13px;
+  letter-spacing:0.15em;
+  text-transform:uppercase;
+  margin: 0 0 10px;
+  color: var(--ink-soft);
+}
+table.ledger{
+  width:100%;
+  border-collapse: collapse;
+  font-size:15px;
+}
+table.ledger th{
+  text-align:left;
+  font-family:'Courier New', monospace;
+  font-size:11px;
+  letter-spacing:0.08em;
+  text-transform:uppercase;
+  color: var(--ink-soft);
+  border-bottom: 1px solid var(--ink);
+  padding: 4px 6px;
+}
+table.ledger th.col-num{ width: 34px; }
+table.ledger th.col-status{ width: 130px; text-align:right; }
+table.ledger td{
+  border-bottom: 1px dotted var(--rule);
+  padding: 8px 6px;
+  vertical-align: middle;
+}
+table.ledger td.col-num{
+  font-family:'Courier New', monospace;
+  color: var(--ink-soft);
+}
+table.ledger tr.empty td{
+  font-family:'Courier New', monospace;
+  color: var(--ink-soft);
+  font-style: normal;
+  text-align:center;
+  padding: 18px 6px;
+}
+.task-link{
+  color: var(--ink);
+  text-decoration: none;
+  border-bottom: 1px solid var(--rule);
+  cursor:pointer;
+}
+.task-link:hover{ border-bottom-color: var(--ink); }
+td.col-status{ text-align:right; }
+
+.stamp{
+  display:inline-block;
+  font-family:'Courier New', monospace;
+  font-size:10.5px;
+  letter-spacing:0.06em;
+  text-transform:uppercase;
+  padding: 3px 9px;
+  border: 2px solid currentColor;
+  border-radius: 3px;
+  transform: rotate(-3deg);
+  cursor:pointer;
+  background: transparent;
+  user-select:none;
+}
+.stamp:hover{ opacity:0.75; }
+.stamp.planned{ color: var(--rust); }
+.stamp.pending{ color: var(--amber); }
+.stamp.inprogress{ color: var(--steel); }
+.stamp.done{ color: var(--olive); transform: rotate(3deg); }
+
+/* add entry form */
+.add-form{
+  border: 1px dashed var(--ink-soft);
+  padding: 16px;
+  margin-bottom: 40px;
+  background: rgba(247,241,227,0.5);
+}
+.add-form h2{
+  font-family:'Courier New', monospace;
+  font-size:13px;
+  letter-spacing:0.15em;
+  text-transform:uppercase;
+  margin: 0 0 12px;
+  color: var(--ink-soft);
+}
+.add-row{ display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
+.add-form input[type="text"], .add-form select, .add-form textarea{
+  font-family: Georgia, serif;
+  background: var(--paper-card);
+  border: 1px solid var(--rule);
+  color: var(--ink);
+  padding: 8px 10px;
+  font-size: 14px;
+}
+.add-form input[type="text"]{ flex: 1 1 260px; }
+.add-form select{ flex: 0 0 150px; font-family:'Courier New', monospace; text-transform:uppercase; font-size:12px; }
+.add-form textarea{ width:100%; min-height:50px; resize:vertical; }
+.log-btn{
+  font-family:'Courier New', monospace;
+  text-transform:uppercase;
+  letter-spacing:0.08em;
+  font-size:12px;
+  background: var(--ink);
+  color: var(--paper);
+  border: none;
+  padding: 9px 18px;
+  cursor:pointer;
+}
+.log-btn:hover{ background: var(--rust); }
+
+/* sections */
+.section{ margin-bottom: 38px; }
+.section-head{
+  display:flex;
+  align-items:baseline;
+  gap:10px;
+  border-bottom: 1px solid var(--ink);
+  margin-bottom: 14px;
+  padding-bottom: 4px;
+}
+.section-head h2{
+  font-family:'Courier New', monospace;
+  font-size:14px;
+  letter-spacing:0.12em;
+  text-transform:uppercase;
+  margin:0;
+}
+.section-head .count{
+  font-family:'Courier New', monospace;
+  font-size:11px;
+  color: var(--ink-soft);
+}
+.section.planned h2{ color: var(--rust); }
+.section.pending h2{ color: var(--amber); }
+.section.inprogress h2{ color: var(--steel); }
+.section.done h2{ color: var(--olive); }
+
+.card{
+  background: var(--paper-card);
+  border: 1px solid var(--rule);
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  position: relative;
+  transition: box-shadow 0.3s;
+}
+.card.flash{ box-shadow: 0 0 0 2px var(--rust); }
+.card-top{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:10px;
+}
+.card-title{
+  font-size: 16px;
+  font-weight: bold;
+  flex: 1;
+  outline: none;
+  cursor: text;
+  border-bottom: 1px dashed transparent;
+}
+.card-title:focus{ border-bottom-color: var(--rule); }
+.card-notes{
+  margin-top: 8px;
+  font-size: 14px;
+  color: var(--ink);
+  outline: none;
+  min-height: 18px;
+  border-bottom: 1px dashed transparent;
+  white-space: pre-wrap;
+}
+.card-notes:focus{ border-bottom-color: var(--rule); }
+.card-notes:empty::before{
+  content: attr(data-placeholder);
+  color: var(--ink-soft);
+  font-style: italic;
+}
+.card-actions{
+  display:flex; gap:8px; align-items:center;
+}
+.icon-btn{
+  font-family:'Courier New', monospace;
+  font-size: 12px;
+  color: var(--ink-soft);
+  background:none;
+  border:none;
+  cursor:pointer;
+  padding: 2px 4px;
+}
+.icon-btn:hover{ color: var(--rust); }
+
+.empty-note{
+  font-family:'Courier New', monospace;
+  font-size: 12px;
+  color: var(--ink-soft);
+  padding: 6px 0 0;
+}
+
+.footer-tools{
+  text-align:center;
+  margin-top: 30px;
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:center;
+  align-items:center;
+  gap: 14px;
+}
+.storage-note{
+  font-family:'Courier New', monospace;
+  font-size: 10.5px;
+  letter-spacing:0.04em;
+  color: var(--ink-soft);
+  text-align:center;
+  margin-top: 4px;
+}
+.clear-link{
+  font-family:'Courier New', monospace;
+  font-size: 11px;
+  letter-spacing:0.05em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  background:none;
+  border:none;
+  cursor:pointer;
+  text-decoration: underline;
+  padding: 0;
+  height:auto;
+}
+.clear-link:hover{ color: var(--rust); }
+
+.err{
+  font-family:'Courier New', monospace;
+  font-size: 12px;
+  color: var(--rust);
+  text-align:center;
+  padding: 10px 0;
+}
+
+@media (max-width: 520px){
+  table.ledger thead{ display:none; }
+  table.ledger, table.ledger tbody, table.ledger tr, table.ledger td{ display:block; width:100%; }
+  table.ledger tr{ border-bottom: 1px dotted var(--rule); padding: 8px 0; }
+  table.ledger td{ border-bottom:none; padding: 2px 0; }
+  td.col-status{ text-align:left; margin-top:4px; }
+  .add-form select{ flex: 1 1 100%; }
+  .masthead{ justify-content:center; text-align:center; }
+  .datebar{ justify-content:center; width:100%; }
+  .footer-tools{ flex-direction:column; gap:10px; }
+}
+</style>
+
+<script>
+(function(){
+  const STATUSES = ["planned","pending","inprogress","done"];
+  const STATUS_LABEL = { planned: "Planned", pending: "Pending", inprogress: "In Progress", done: "Done" };
+  const SECTION_ORDER = ["planned","pending","inprogress","done"];
+  const SECTION_TITLE = { planned: "Planned for Today", pending: "Pending", inprogress: "In Progress", done: "Done" };
+
+  let currentDate = todayStr();
+  let entries = [];
+  let loaded = false;
+  let flashId = null;
+
+  function todayStr(){
+    const d = new Date();
+    return d.getFullYear() + "-" + pad(d.getMonth()+1) + "-" + pad(d.getDate());
+  }
+  function pad(n){ return n < 10 ? "0"+n : ""+n; }
+  function fmtDate(str){
+    const [y,m,d] = str.split("-").map(Number);
+    const dt = new Date(y, m-1, d);
+    return dt.toLocaleDateString(undefined, { weekday:'short', year:'numeric', month:'short', day:'numeric' });
+  }
+  function uid(){ return 't' + Date.now() + Math.random().toString(36).slice(2,7); }
+  function escapeHtml(s){
+    return (s||"").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  // Storage backend: uses Claude's artifact storage when available (window.storage),
+  // otherwise falls back to the browser's own localStorage so the file also works
+  // when saved and opened directly, and survives a refresh either way.
+  const usingArtifactStorage = !!window.storage;
+
+  async function storeGet(key){
+    if(usingArtifactStorage){
+      try{
+        const res = await window.storage.get(key, false);
+        return res ? res.value : null;
+      }catch(e){ return null; }
+    }
+    try{ return localStorage.getItem(key); }catch(e){ return null; }
+  }
+
+  async function storeSet(key, value){
+    if(usingArtifactStorage){
+      try{
+        await window.storage.set(key, value, false);
+        return true;
+      }catch(e){ return false; }
+    }
+    try{ localStorage.setItem(key, value); return true; }catch(e){ return false; }
+  }
+
+  async function storeKeys(prefix){
+    if(usingArtifactStorage){
+      try{
+        const res = await window.storage.list(prefix, false);
+        return res && res.keys ? res.keys : [];
+      }catch(e){ return []; }
+    }
+    try{
+      return Object.keys(localStorage).filter(k => k.startsWith(prefix));
+    }catch(e){ return []; }
+  }
+
+  async function loadDay(date){
+    loaded = false;
+    render();
+    try{
+      const val = await storeGet('worklog:' + date);
+      entries = val ? JSON.parse(val) : [];
+    }catch(e){
+      entries = [];
+    }
+    loaded = true;
+    render();
+  }
+
+  async function saveDay(){
+    const ok = await storeSet('worklog:' + currentDate, JSON.stringify(entries));
+    if(!ok){ showError("Couldn't save — try again."); return; }
+    await touchDateIndex(currentDate);
+  }
+
+  async function touchDateIndex(date){
+    try{
+      let dates = [];
+      const val = await storeGet('worklog:dates');
+      dates = val ? JSON.parse(val) : [];
+      if(!dates.includes(date)){
+        dates.push(date);
+        await storeSet('worklog:dates', JSON.stringify(dates));
+      }
+    }catch(e){ /* non-critical */ }
+  }
+
+  async function exportBackup(){
+    try{
+      const keys = await storeKeys('worklog:');
+      const dump = {};
+      for(const k of keys){
+        const v = await storeGet(k);
+        if(v !== null) dump[k] = v;
+      }
+      const blob = new Blob([JSON.stringify(dump, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'worklog-backup.json';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }catch(e){
+      showError("Couldn't build the backup file.");
+    }
+  }
+
+  function triggerImport(){
+    document.getElementById('importFile').click();
+  }
+
+  async function importBackup(fileInput){
+    const file = fileInput.files && fileInput.files[0];
+    if(!file) return;
+    try{
+      const text = await file.text();
+      const dump = JSON.parse(text);
+      for(const key of Object.keys(dump)){
+        if(key.startsWith('worklog:')){
+          await storeSet(key, dump[key]);
+        }
+      }
+      await loadDay(currentDate);
+      showError("Backup loaded.");
+    }catch(e){
+      showError("That file didn't look like a valid backup.");
+    }
+    fileInput.value = "";
+  }
+
+  function showError(msg){
+    const el = document.getElementById('errBox');
+    if(el){ el.textContent = msg; setTimeout(()=>{ if(el) el.textContent=''; }, 3500); }
+  }
+
+  function shiftDate(days){
+    const [y,m,d] = currentDate.split("-").map(Number);
+    const dt = new Date(y, m-1, d);
+    dt.setDate(dt.getDate() + days);
+    currentDate = dt.getFullYear() + "-" + pad(dt.getMonth()+1) + "-" + pad(dt.getDate());
+    loadDay(currentDate);
+  }
+
+  function cycleStatus(id){
+    const e = entries.find(x => x.id === id);
+    if(!e) return;
+    const idx = STATUSES.indexOf(e.status);
+    e.status = STATUSES[(idx+1) % STATUSES.length];
+    saveDay();
+    render();
+  }
+
+  function deleteEntry(id){
+    entries = entries.filter(x => x.id !== id);
+    saveDay();
+    render();
+  }
+
+  function updateField(id, field, value){
+    const e = entries.find(x => x.id === id);
+    if(!e) return;
+    e[field] = value;
+    saveDay();
+  }
+
+  function addEntry(title, status, notes){
+    entries.push({ id: uid(), title: title.trim(), status: status, notes: notes.trim(), created: Date.now() });
+    saveDay();
+    render();
+  }
+
+  function jumpTo(id){
+    flashId = id;
+    render();
+    requestAnimationFrame(() => {
+      const el = document.getElementById('card-' + id);
+      if(el){
+        el.scrollIntoView({ behavior:'smooth', block:'center' });
+        setTimeout(() => { flashId = null; render(); }, 1200);
+      }
+    });
+  }
+
+  async function clearDay(){
+    if(!confirm("Clear every entry logged for " + fmtDate(currentDate) + "?")) return;
+    entries = [];
+    await saveDay();
+    render();
+  }
+
+  function render(){
+    const app = document.getElementById('app');
+    if(!loaded){
+      app.innerHTML = '<div class="loading">Opening the logbook…</div>';
+      return;
+    }
+
+    const rows = entries.map((e, i) => `
+      <tr>
+        <td class="col-num">${pad(i+1)}</td>
+        <td><a class="task-link" onclick="Worklog.jumpTo('${e.id}')">${escapeHtml(e.title) || '(untitled)'}</a></td>
+        <td class="col-status"><span class="stamp ${e.status}" onclick="Worklog.cycleStatus('${e.id}')" title="Click to change status">${STATUS_LABEL[e.status]}</span></td>
+      </tr>
+    `).join("");
+
+    const tableBody = entries.length ? rows : `<tr class="empty"><td colspan="3">Nothing logged yet. Add your first entry below.</td></tr>`;
+
+    const sections = SECTION_ORDER.map(status => {
+      const items = entries.filter(e => e.status === status);
+      const cards = items.map(e => `
+        <div class="card ${flashId === e.id ? 'flash' : ''}" id="card-${e.id}">
+          <div class="card-top">
+            <div class="card-title" contenteditable="true"
+                 onblur="Worklog.updateField('${e.id}','title', this.textContent)">${escapeHtml(e.title)}</div>
+            <div class="card-actions">
+              <span class="stamp ${e.status}" onclick="Worklog.cycleStatus('${e.id}')" title="Click to change status">${STATUS_LABEL[e.status]}</span>
+              <button class="icon-btn" onclick="Worklog.deleteEntry('${e.id}')" title="Remove entry">✕</button>
+            </div>
+          </div>
+          <div class="card-notes" contenteditable="true" data-placeholder="Add notes…"
+               onblur="Worklog.updateField('${e.id}','notes', this.textContent)">${escapeHtml(e.notes)}</div>
+        </div>
+      `).join("");
+      return `
+        <div class="section ${status}">
+          <div class="section-head">
+            <h2>${SECTION_TITLE[status]}</h2>
+            <span class="count">${items.length}</span>
+          </div>
+          ${items.length ? cards : `<div class="empty-note">— none —</div>`}
+        </div>
+      `;
+    }).join("");
+
+    app.innerHTML = `
+      <div class="masthead">
+        <h1>Log<span>book</span></h1>
+        <div class="datebar">
+          <button onclick="Worklog.shiftDate(-1)" title="Previous day">‹</button>
+          <input type="date" value="${currentDate}" onchange="Worklog.goToDate(this.value)">
+          <button onclick="Worklog.shiftDate(1)" title="Next day">›</button>
+          <button class="today-btn" onclick="Worklog.goToDate('${todayStr()}')">Today</button>
+          <button class="today-btn" onclick="Worklog.exportPDF()" title="Export this day's log as PDF">Export PDF</button>
+        </div>
+      </div>
+      <div class="subline">${fmtDate(currentDate)} — entries save automatically, no account needed</div>
+      <div class="storage-note">${usingArtifactStorage ? 'Saved to Claude storage — persists across refresh and future sessions.' : 'Saved in this browser (localStorage) — persists across refresh on this device/browser only. Use "Save Backup" below to keep a portable copy.'}</div>
+
+      <div id="errBox" class="err"></div>
+
+      <div class="table-wrap">
+        <h2>Quick Status</h2>
+        <table class="ledger">
+          <thead><tr><th class="col-num">#</th><th>Task</th><th class="col-status">Status</th></tr></thead>
+          <tbody>${tableBody}</tbody>
+        </table>
+      </div>
+
+      <div class="add-form">
+        <h2>New Entry</h2>
+        <div class="add-row">
+          <input type="text" id="newTitle" placeholder="What are you working on?">
+          <select id="newStatus">
+            <option value="planned">Planned</option>
+            <option value="pending">Pending</option>
+            <option value="inprogress">In Progress</option>
+            <option value="done">Done</option>
+          </select>
+        </div>
+        <textarea id="newNotes" placeholder="Optional notes…"></textarea>
+        <div style="margin-top:10px; text-align:right;">
+          <button class="log-btn" onclick="Worklog.submitNew()">Log it</button>
+        </div>
+      </div>
+
+      ${sections}
+
+      <div class="footer-tools">
+        <button class="clear-link" onclick="Worklog.exportBackup()">Save backup (.json)</button>
+        <button class="clear-link" onclick="Worklog.triggerImport()">Load backup</button>
+        <button class="clear-link" onclick="Worklog.clearDay()">Clear this day's log</button>
+        <input type="file" id="importFile" accept="application/json" style="display:none" onchange="Worklog.importBackup(this)">
+      </div>
+    `;
+  }
+
+  function submitNew(){
+    const title = document.getElementById('newTitle').value;
+    if(!title.trim()){ showError("Give the task a title first."); return; }
+    const status = document.getElementById('newStatus').value;
+    const notes = document.getElementById('newNotes').value;
+    addEntry(title, status, notes);
+  }
+
+  function goToDate(val){
+    if(!val) return;
+    currentDate = val;
+    loadDay(currentDate);
+  }
+
+  function exportPDF(){
+    if(!window.jspdf || !window.jspdf.jsPDF){
+      showError("PDF tool is still loading — try again in a moment.");
+      return;
+    }
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    const marginX = 48;
+    let y = 56;
+
+    function ensureRoom(needed){
+      if(y + needed > pageH - 44){
+        doc.addPage();
+        y = 56;
+      }
+    }
+    function ruleLine(){
+      doc.setDrawColor(160,150,130);
+      doc.setLineWidth(0.6);
+      doc.line(marginX, y, pageW - marginX, y);
+    }
+
+    // Header
+    doc.setFont("courier", "bold");
+    doc.setFontSize(18);
+    doc.setTextColor(30,28,25);
+    doc.text("LOGBOOK", marginX, y);
+    doc.setFont("courier", "normal");
+    doc.setFontSize(10);
+    doc.setTextColor(110,102,86);
+    doc.text(fmtDate(currentDate).toUpperCase(), pageW - marginX, y, { align: 'right' });
+    y += 14;
+    ruleLine();
+    y += 26;
+
+    // Quick status table
+    doc.setFont("courier", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(30,28,25);
+    doc.text("QUICK STATUS", marginX, y);
+    y += 16;
+
+    if(entries.length === 0){
+      doc.setFont("times", "italic");
+      doc.setFontSize(11);
+      doc.setTextColor(110,102,86);
+      doc.text("Nothing logged for this day.", marginX, y);
+      y += 20;
+    } else {
+      entries.forEach((e, i) => {
+        ensureRoom(20);
+        doc.setFont("courier", "normal");
+        doc.setFontSize(10);
+        doc.setTextColor(110,102,86);
+        doc.text(pad(i+1) + ".", marginX, y);
+        doc.setFont("times", "normal");
+        doc.setFontSize(11);
+        doc.setTextColor(30,28,25);
+        const title = e.title || "(untitled)";
+        doc.text(title, marginX + 26, y);
+        doc.setFont("courier", "bold");
+        doc.setFontSize(9);
+        const statusColors = {
+          planned:[161,61,43], pending:[185,138,46], inprogress:[74,90,106], done:[63,93,58]
+        };
+        const c = statusColors[e.status] || [30,28,25];
+        doc.setTextColor(c[0], c[1], c[2]);
+        doc.text(STATUS_LABEL[e.status].toUpperCase(), pageW - marginX, y, { align: 'right' });
+        y += 18;
+      });
+      y += 8;
+    }
+
+    ruleLine();
+    y += 26;
+
+    // Sections with notes
+    SECTION_ORDER.forEach(status => {
+      const items = entries.filter(e => e.status === status);
+      ensureRoom(24);
+      const c = { planned:[161,61,43], pending:[185,138,46], inprogress:[74,90,106], done:[63,93,58] }[status];
+      doc.setFont("courier", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(c[0], c[1], c[2]);
+      doc.text(SECTION_TITLE[status].toUpperCase() + "  (" + items.length + ")", marginX, y);
+      y += 16;
+
+      if(items.length === 0){
+        doc.setFont("times", "italic");
+        doc.setFontSize(10);
+        doc.setTextColor(110,102,86);
+        ensureRoom(16);
+        doc.text("— none —", marginX, y);
+        y += 20;
+      } else {
+        items.forEach(e => {
+          ensureRoom(18);
+          doc.setFont("times", "bold");
+          doc.setFontSize(11);
+          doc.setTextColor(30,28,25);
+          doc.text(e.title || "(untitled)", marginX, y);
+          y += 14;
+          if(e.notes && e.notes.trim()){
+            doc.setFont("times", "normal");
+            doc.setFontSize(10);
+            doc.setTextColor(70,65,55);
+            const lines = doc.splitTextToSize(e.notes.trim(), pageW - marginX*2 - 10);
+            lines.forEach(line => {
+              ensureRoom(13);
+              doc.text(line, marginX + 10, y);
+              y += 13;
+            });
+          }
+          y += 8;
+        });
+      }
+      y += 6;
+    });
+
+    doc.save('worklog-' + currentDate + '.pdf');
+  }
+
+  window.Worklog = {
+    cycleStatus, deleteEntry, updateField, submitNew, jumpTo, shiftDate, goToDate, clearDay, exportPDF,
+    exportBackup, triggerImport, importBackup
+  };
+
+  loadDay(currentDate);
+})();
+</script>
